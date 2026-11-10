@@ -7,6 +7,7 @@ import {
   type ProjectUpdatePayload,
   type ProjectSnapshot,
   type ThreadId,
+  type ProjectScript,
 } from "@t3tools/contracts";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import * as Context from "effect/Context";
@@ -376,6 +377,20 @@ export const make = Effect.gen(function* () {
     return Option.isNone(row) ? Option.none() : Option.some(yield* hydrate(row.value));
   });
 
+  // The clients and the setup runner read a project's scripts from its settings override
+  // (resolveProjectScripts), so scripts written here must land there too or they never show.
+  const syncScriptsToSettings = (projectId: ProjectId, scripts: ReadonlyArray<ProjectScript>) =>
+    serverSettings
+      .updateSettings({
+        projectSettingsOverrides: { [projectId]: { defaultProjectScripts: [...scripts] } },
+      })
+      .pipe(
+        Effect.asVoid,
+        Effect.catchCause((cause) =>
+          Effect.logWarning(`Failed to store scripts in settings for project ${projectId}.`, cause),
+        ),
+      );
+
   const create: ProjectService["Service"]["create"] = Effect.fn("ProjectService.create")(
     function* (input) {
       const workspaceRoot = yield* normalizeWorkspaceRoot({
@@ -391,6 +406,9 @@ export const make = Effect.gen(function* () {
         workspaceRoot,
         ...(input.scripts === undefined ? {} : { scripts: input.scripts }),
       });
+      if (input.scripts !== undefined && input.scripts.length > 0) {
+        yield* syncScriptsToSettings(input.projectId, input.scripts);
+      }
       yield* projectEnrichment.invalidate([workspaceRoot]);
       return yield* readCommitted(input.projectId);
     },
@@ -429,6 +447,7 @@ export const make = Effect.gen(function* () {
         ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
         ...(input.archived === undefined ? {} : { archived: input.archived }),
       });
+      if (input.scripts !== undefined) yield* syncScriptsToSettings(input.projectId, input.scripts);
       if (workspaceRoot !== previousRoot) {
         yield* projectEnrichment.invalidate([previousRoot, workspaceRoot]);
       }

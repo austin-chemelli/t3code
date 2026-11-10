@@ -1,0 +1,16 @@
+[Unit]
+Description=T3 Code fork (localhost:3783)
+After=network.target hub.service
+
+[Service]
+WorkingDirectory=%h/dev/t3code
+Environment=PATH=%h/.local/bin:%h/.local/share/vite-plus/bin:%h/.nvm/versions/node/v24.22.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=%h/.local/share/vite-plus/bin/vp exec node apps/server/dist/bin.mjs serve --base-dir %h/.t3-fork --port 3783 --host 127.0.0.1
+Restart=on-failure
+RestartSec=5
+# Agents and their terminals run under this service; stopping it should not kill them mid-write.
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

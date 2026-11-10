@@ -254,6 +254,14 @@ it.layer(layerTest)("ProjectService", (it) => {
         ],
       });
       assert.equal(created.workspaceRoot, "/work/project");
+      // Scripts set through the service reach the settings override the clients read.
+      const settings = yield* (yield* ServerSettings.ServerSettingsService).getSettings;
+      assert.deepEqual(
+        settings.projectSettingsOverrides[projectId]?.defaultProjectScripts?.map(
+          (script) => script.id,
+        ),
+        ["setup"],
+      );
       assert.isNull(created.repositoryIdentity);
       assert.isNull(created.faviconPath);
 

@@ -65,6 +65,7 @@ import {
   FolderGit2Icon,
   FolderIcon,
   FolderPlusIcon,
+  LayoutDashboardIcon,
   MessageSquareDashedIcon,
   LinkIcon,
   MessageSquareIcon,
@@ -79,6 +80,7 @@ import {
   TextSearchIcon,
   UserPlusIcon,
 } from "lucide-react";
+import { openHub } from "~/hub/openHub";
 import { openThreadFind } from "./chat/threadFindStore";
 import {
   useDeferredValue,
@@ -1422,6 +1424,16 @@ function OpenCommandPaletteDialog(props: {
       icon: <PullRequestGlyph.link className={ITEM_ICON_CLASS} />,
       run: async () => {
         openLinkPullRequestDialog(threadRef);
+      },
+    });
+    actionItems.push({
+      kind: "action",
+      value: "action:open-hub",
+      searchTerms: ["hub", "board", "status", "needs you", "tracks", "plans", "decisions"],
+      title: "Open project hub",
+      icon: <LayoutDashboardIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openHub(threadRef);
       },
     });
     actionItems.push({
