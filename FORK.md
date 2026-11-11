@@ -44,19 +44,44 @@ Rebase onto stable release tags, not nightlies. A conflict will be in one of the
 
 ## Running it
 
-- **Day to day:** the systemd user service `t3fork` serves the built app at
-  <http://localhost:3783> (unit: `packaging/t3fork.service`, copied to
-  `~/.config/systemd/user/`). After changing code: `vp run --filter t3 --filter @t3tools/web build`
-  then `systemctl --user restart t3fork`. Logs: `journalctl --user -u t3fork -f`.
-- **Sign in a browser:** `vp exec node apps/server/dist/bin.mjs pair --base-dir ~/.t3-fork`
-  prints a one-time link.
-- **Develop:** stop the service, then `vp run dev --home-dir ~/.t3-fork` (hot reload) and open
-  the printed pairing link.
-- The fork keeps its own data in `~/.t3-fork`, apart from the installed app's `~/.t3`. To start
-  over from the installed app's projects and stopped threads:
-  `vp run migrate-dev-db --base-dir ~/.t3-fork` (service stopped; this replaces the fork's data).
+The fork runs as the systemd user service `t3fork` and serves the built app at
+<http://localhost:3783>. It keeps its own data in `~/.t3-fork`, apart from the installed app's
+`~/.t3`. Unit file: `fork/t3fork.service` (copied to `~/.config/systemd/user/`).
+
+| To do this                    | Run                                                                                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| See if it is up, read its log | `systemctl --user status t3fork`, `journalctl --user -u t3fork -f`                                                                             |
+| Sign in a new browser         | `vp exec node apps/server/dist/bin.mjs auth pairing create --base-dir ~/.t3-fork --base-url http://localhost:3783` and open the link it prints |
+| Put new code live             | `fork/deploy.sh` (see below)                                                                                                                   |
+
+## Working on the fork from inside the fork
+
+The service runs from the **live checkout**, `~/dev/t3code` on branch `austin`. Agents working on
+the fork are themselves running inside that service, so:
+
+- **Never edit, build or run a dev server in the live checkout.** Work in a git worktree on a
+  branch cut from `austin` (not from `main`, which is upstream and has none of the fork's code).
+- **Try changes with a dev server in your worktree:** `vp run dev`. It uses the worktree's own
+  `.t3` data and its own ports (read them from the `[dev-runner]` line), so it cannot disturb the
+  live fork. Stop it by the PID you started.
+- **Never restart `t3fork` yourself**, and never `pkill` by name. Restarting stops every thread
+  the fork is running, including yours.
+- **Going live is Austin's call.** When he says to deploy, run `fork/deploy.sh` from any
+  directory (the project script "Deploy fork" does the same). It refuses to run unless the live
+  checkout is clean and on `austin`, builds, then restarts the service about 3 seconds later.
+  `fork/deploy.sh <branch>` first fast-forwards `austin` to that local branch; use it only when
+  Austin asks for that branch to go live. Expect your own turn to be cut off by the restart, so
+  say what you are about to do before you run it.
+- **Hub:** this repo has a hub (`.notes/hub/`, Board at <http://localhost:8765/t3code/>). The
+  rules in `~/dev/CLAUDE.md` (Hub) apply: keep your track file current, put plans in
+  `.notes/hub/plans/`. The worktree setup script links `.notes` into each worktree.
+- **The hub's own code** is a separate repo, `~/dev/hub`. A change to the bridge needs both sides:
+  `apps/web/src/hub/hubBridge.ts` here and `src/hub/static/hub.js` there.
+- Upstream's `AGENTS.md` still applies to everything else (tests, lint, `vp run check:changed`).
 
 ## Known gaps
+
+- Threads do not move between the fork and the installed app; each has its own data.
 
 - The Hub entry does nothing on a new, unsent thread: the right panel belongs to saved threads.
 - Browser-based tests (`*.browser.tsx`) need `pnpm exec playwright install` first.
