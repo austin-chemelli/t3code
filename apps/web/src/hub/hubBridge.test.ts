@@ -9,7 +9,11 @@ describe("readHubRequest", () => {
       path: "/nfl/",
       title: "Board",
       root: null,
+      threadIds: [],
     });
+    expect(
+      readHubRequest({ hub: 1, type: "ready", path: "/nfl/", threadIds: ["a", 7, ""] }),
+    ).toMatchObject({ threadIds: ["a"] });
     expect(readHubRequest({ hub: 1, type: "open-thread", threadId: "t1" })).toEqual({
       type: "open-thread",
       threadId: "t1",

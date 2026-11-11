@@ -11,7 +11,7 @@ export type HubTheme = "light" | "dark";
 
 /** What the hub page may ask of T3. */
 export type HubRequest =
-  | { type: "ready"; path: string; title: string; root: string | null }
+  | { type: "ready"; path: string; title: string; root: string | null; threadIds: string[] }
   | { type: "open-thread"; threadId: string; environmentId: string | null };
 
 /** What T3 tells the hub page. */
@@ -21,6 +21,8 @@ export type HubCommand =
       threadId: string | null;
       environmentId: string | null;
       theme: HubTheme;
+      /** Of the threads the page asked about, the ones this T3 can open. */
+      knownThreadIds: string[];
     }
   | { type: "back" };
 
@@ -68,6 +70,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 const MAX_ID_LENGTH = 512;
+const MAX_THREAD_IDS = 200;
 const isId = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0 && value.length <= MAX_ID_LENGTH;
 
@@ -82,6 +85,9 @@ export function readHubRequest(data: unknown): HubRequest | undefined {
         path: data.path,
         title: typeof data.title === "string" ? data.title : "",
         root: typeof data.root === "string" && data.root.length > 0 ? data.root : null,
+        threadIds: Array.isArray(data.threadIds)
+          ? data.threadIds.filter(isId).slice(0, MAX_THREAD_IDS)
+          : [],
       };
     case "open-thread":
       if (!isId(data.threadId)) return undefined;

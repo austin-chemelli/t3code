@@ -10,8 +10,10 @@ import { ArrowLeftIcon, ExternalLinkIcon, HomeIcon, RotateCwIcon } from "lucide-
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { Button } from "~/components/ui/button";
+import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { getRenderedAppearance, subscribeRenderedAppearance } from "~/hooks/useTheme";
 import { useRightPanelStore } from "~/rightPanelStore";
+import { readThreadShell } from "~/state/entities";
 import { buildThreadRouteParams } from "~/threadRoutes";
 
 import {
@@ -77,12 +79,19 @@ export function HubPanel(props: {
     if (origin === null) return;
     frameRef.current?.contentWindow?.postMessage(hubCommandMessage(command), origin);
   };
-  const sendContext = () =>
+  // Thread ids the current hub page shows buttons for; T3 answers which of them it can open.
+  const [askedThreadIds, setAskedThreadIds] = useState<ReadonlyArray<string>>([]);
+  const knownThreadIds = (ids: ReadonlyArray<string>) =>
+    ids.filter(
+      (id) => readThreadShell(scopeThreadRef(threadRef.environmentId, ThreadId.make(id))) !== null,
+    );
+  const sendContext = (ids: ReadonlyArray<string> = askedThreadIds) =>
     post({
       type: "context",
       threadId: threadRef.threadId,
       environmentId: threadRef.environmentId,
       theme,
+      knownThreadIds: knownThreadIds(ids),
     });
 
   const probe = () => {
@@ -121,13 +130,26 @@ export function HubPanel(props: {
           lastPathByWorkspace.set(workspaceKey, request.path);
         }
         setTitle(request.title || "Hub");
-        sendContext();
+        setAskedThreadIds(request.threadIds);
+        sendContext(request.threadIds);
         return;
       }
       const target = scopeThreadRef(
         EnvironmentId.make(request.environmentId ?? threadRef.environmentId),
         ThreadId.make(request.threadId),
       );
+      // The hub also lists threads from other T3 installs; opening one here would land on an
+      // empty thread, so say so and stay put.
+      if (readThreadShell(target) === null) {
+        toastManager.add(
+          stackedThreadToast({
+            type: "info",
+            title: "That thread isn't in this T3 Code",
+            description: "It was started in another T3 Code install on this machine.",
+          }),
+        );
+        return;
+      }
       // The Board travels with the reader: it is open beside whichever thread they land on.
       setOpenedFromHub(true);
       useRightPanelStore.getState().open(target, "hub");
@@ -213,7 +235,7 @@ export function HubPanel(props: {
           // storage and holds a live-reload stream, so it needs its own origin.
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
           className="min-h-0 w-full flex-1 border-0"
-          onLoad={sendContext}
+          onLoad={() => sendContext()}
         />
       )}
     </div>
